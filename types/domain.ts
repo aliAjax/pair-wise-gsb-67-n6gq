@@ -74,3 +74,74 @@ export interface AuditEntry {
   detail: string
   createdAt: string
 }
+
+export type ChangeKind = '验收项更新' | '证书更新' | '处理说明' | '联合复验' | '验收决定'
+export type SyncRecordStatus = '待回传' | '回传中' | '已回传' | '冲突' | '失败' | '已放弃' | '已冻结'
+export type ConflictType = '被其他班组改过' | '证书失效' | '签署版本不匹配'
+
+export interface FieldChange {
+  value: unknown
+  confirmedAt: string
+}
+
+export interface SyncCertificateRef {
+  id: string
+  name: string
+  expiresAt: string
+  verified: boolean
+}
+
+export interface SyncConflict {
+  type: ConflictType
+  equipmentId: string
+  equipmentName: string
+  equipmentCode: string
+  targetRef: string
+  targetLabel: string
+  fields: string[]
+  certificates: SyncCertificateRef[]
+  baseVersion: number
+  serverVersion: number
+  signedVersion?: number
+  localValue?: string
+  serverValue?: string
+  remoteCrew?: string
+  remoteConfirmedAt?: string
+  message: string
+}
+
+export interface OutboxRecord {
+  id: string
+  kind: ChangeKind
+  crew: string
+  equipmentId: string
+  itemId?: string
+  defectId?: string
+  certificateId?: string
+  changes: Record<string, FieldChange>
+  reply?: PartyReply
+  retest?: { round: number; passed: boolean; result: string; tester: string; testedAt: string }
+  baseVersion: number
+  basePlantVersion: number
+  status: SyncRecordStatus
+  attempts: number
+  error?: string
+  conflict?: SyncConflict
+  resolvedNote?: string
+  createdAt: string
+  confirmedAt: string
+  mergedAt?: string
+  frozenAt?: string
+}
+
+export interface ChangeDescriptor {
+  kind: ChangeKind
+  equipmentId: string
+  itemId?: string
+  defectId?: string
+  certificateId?: string
+  changes: Record<string, FieldChange>
+  reply?: PartyReply
+  retest?: OutboxRecord['retest']
+  baseVersion: number
+}

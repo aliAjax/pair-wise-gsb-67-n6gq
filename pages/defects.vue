@@ -29,8 +29,12 @@ function submitReply() {
 }
 function submitRetest() {
   if (!selected.value || !retest.result) return
-  store.addRetest(selected.value.id, retest.result, retest.passed)
-  toast.add({ severity: retest.passed ? 'success' : 'warn', summary: retest.passed ? '复验通过，缺陷已关闭' : '复验未通过，返回整改', life: 2500 })
+  const result = store.addRetest(selected.value.id, retest.result, retest.passed)
+  if (!result.ok) {
+    toast.add({ severity: 'error', summary: '复验未提交', detail: result.message, life: 3000 })
+    return
+  }
+  toast.add({ severity: retest.passed ? 'success' : 'warn', summary: retest.passed ? '复验通过，缺陷已关闭' : '复验未通过，返回整改', detail: result.message, life: 3000 })
   retestVisible.value = false
 }
 function decide(status: '已关闭' | '带条件通过' | '整改中') {

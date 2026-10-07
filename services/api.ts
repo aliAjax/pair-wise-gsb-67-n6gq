@@ -10,5 +10,5 @@ export async function loadEquipmentSnapshot(fallback: EquipmentNode[]): Promise<
 
 export async function validateEvidencePackage(payload: unknown) {
   if (!process.env.NUXT_PUBLIC_API_BASE_URL) return { accepted: true, packageId: `LOCAL-${Date.now()}` }
-  return client('/acceptance/validate-package', { method: 'POST', body: payload })
+  return client('/acceptance/validate-package', { method: 'POST', body: payload as Record<string, unknown> })
 }
