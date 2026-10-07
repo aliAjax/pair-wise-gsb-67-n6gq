@@ -14,10 +14,10 @@ const keyword = ref('')
 const rows = computed(() => store.audit.filter((item) => !keyword.value || `${item.entityId} ${item.action} ${item.operator} ${item.detail}`.includes(keyword.value)))
 const sign = () => {
   const result = store.signOff()
-  toast.add({ severity: result.ok ? 'success' : 'error', summary: result.ok ? '签署完成' : '完整性校验未通过', detail: result.message, life: 4000 })
+  toast.add({ severity: result.ok ? 'success' : 'error', summary: result.ok ? '签署完成' : '完整性校验未通过', detail: result.message, life: 4500 })
 }
 const exportPackage = () => {
-  const payload = { plant: store.plant, equipment: store.equipment, defects: store.defects, audit: store.audit, preflight: store.preflight }
+  const payload = { plant: store.plant, equipment: store.equipment, defects: store.defects, audit: store.audit, pendingRecords: store.pendingRecords, preflight: store.preflight }
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = '光伏并网验收交付包.json'; anchor.click(); URL.revokeObjectURL(url)
 }
@@ -25,10 +25,28 @@ const exportPackage = () => {
 
 <template>
   <section class="page">
-    <div class="preflight-panel">
-      <div><span>并网前完整性校验</span><strong>{{ store.preflight.allowed ? '全部条件满足' : `${store.preflight.blocking.length}项阻断` }}</strong><p v-for="item in store.preflight.blocking" :key="item">{{ item }}</p></div>
-      <div><Button label="导出交付包" outlined @click="exportPackage" /><Button label="签署并锁定版本" @click="sign" /></div>
+    <div v-if="store.conflictCount" class="conflict-banner">
+      <div>
+        <span>回传冲突未清空 · 完整性检查与签署已停住</span>
+        <strong>{{ store.conflictCount }} 条记录停留在冲突区</strong>
+        <div v-for="item in store.conflictRecords" :key="item.id" class="conflict-line">
+          <p>设备：{{ item.equipmentName }}（{{ item.equipmentId }}）</p>
+          <p>{{ item.entityType }}：{{ item.entityLabel }}（{{ item.entityId }}）</p>
+          <p>原因：{{ item.conflictReason }} ｜ {{ item.conflictDetail }}</p>
+          <p v-if="item.conflictReason === '证书失效'">证书：{{ item.conflictDetail }}</p>
+        </div>
+      </div>
+      <NuxtLink to="/sync"><Button label="前往冲突区处理" /></NuxtLink>
     </div>
+    <div class="preflight-panel" :class="{ blocked: !store.preflight.allowed }">
+      <div>
+        <span>并网前完整性校验{{ store.conflictCount ? '（已暂停）' : '' }}</span>
+        <strong>{{ store.preflight.allowed ? '全部条件满足' : `${store.preflight.blocking.length}项阻断` }}</strong>
+        <p v-for="(item, index) in store.preflight.blocking" :key="index">{{ item }}</p>
+      </div>
+      <div><Button label="导出交付包" outlined @click="exportPackage" /><Button label="签署并锁定版本" :disabled="!store.preflight.allowed" @click="sign" /></div>
+    </div>
+    <p v-if="store.frozen" class="frozen-note">当前交付版本 V{{ store.plant.version }} 已签署，全部回传记录已冻结。</p>
     <div class="section-head"><div><h2>验收审计</h2><p>当前交付版本 V{{ store.plant.version }} · {{ store.plant.status }}</p></div><InputText v-model="keyword" placeholder="搜索实体、动作或操作人" /></div>
     <DataTable :value="rows" dataKey="id" size="small">
       <Column field="createdAt" header="时间"><template #body="{ data }">{{ data.createdAt.replace('T', ' ').slice(0, 16) }}</template></Column>

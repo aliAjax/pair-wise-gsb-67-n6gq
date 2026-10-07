@@ -17,14 +17,22 @@ const toast = useToast()
 const selected = ref<AcceptanceDefect | null>(null)
 const replyVisible = ref(false)
 const retestVisible = ref(false)
-const reply = reactive<PartyReply>({ party: '设备厂家', owner: '', content: '', evidence: '', repliedAt: new Date().toISOString() })
+const reply = reactive<PartyReply>({ party: store.CREW_PARTY[store.currentCrew], owner: '', content: '', evidence: '', repliedAt: new Date().toISOString() })
 const retest = reactive({ result: '', passed: true, note: '' })
 const rows = computed(() => store.defects.filter((item) => !store.keyword || `${item.id} ${item.title} ${item.owner} ${item.status}`.includes(store.keyword)))
+function syncState(defectId: string) {
+  return store.pendingRecords.find((record) => record.entityId === defectId && ['待回传', '回传中', '回传失败', '冲突待处理'].includes(record.status))
+}
 function open(defect: AcceptanceDefect) { selected.value = defect }
+function openReply() {
+  if (!selected.value) return
+  reply.party = store.CREW_PARTY[store.currentCrew]
+  replyVisible.value = true
+}
 function submitReply() {
   if (!selected.value) return
-  const result = store.addReply(selected.value.id, { ...reply, repliedAt: new Date().toISOString() })
-  toast.add({ severity: result.ok ? 'success' : 'error', summary: result.message, life: 2500 })
+  const result = store.addReply(selected.value.id, { ...reply })
+  toast.add({ severity: result.ok ? 'success' : 'error', summary: result.message, life: 3200 })
   if (result.ok) replyVisible.value = false
 }
 function submitRetest() {
@@ -42,7 +50,7 @@ function decide(status: '已关闭' | '带条件通过' | '整改中') {
 
 <template>
   <section class="page">
-    <div class="section-head"><div><h2>缺陷闭环处置</h2><p>建设、设备厂家与运维单位分别提交说明，验收负责人决定通过、退回或带条件接受。</p></div><InputText v-model="store.keyword" placeholder="搜索缺陷、责任方或状态" /></div>
+    <div class="section-head"><div><h2>缺陷闭环处置</h2><p>建设、设备厂家与运维单位分别提交说明，断网时进入待回传队列，联网后与其他班组的说明合并；验收负责人决定通过、退回或带条件接受。</p></div><InputText v-model="store.keyword" placeholder="搜索缺陷、责任方或状态" /></div>
     <DataTable :value="rows" dataKey="id" size="small" selectionMode="single" @rowSelect="(event: any) => open(event.data)">
       <Column field="id" header="编号" />
       <Column field="title" header="缺陷" />
@@ -52,9 +60,17 @@ function decide(status: '已关闭' | '带条件通过' | '整改中') {
       <Column field="dueDate" header="截止" />
       <Column header="状态"><template #body="{ data }"><Tag :value="data.status" :severity="data.status === '已关闭' ? 'success' : data.status === '带条件通过' ? 'info' : 'warn'" /></template></Column>
       <Column header="版本"><template #body="{ data }">V{{ data.version }}</template></Column>
+      <Column header="回传">
+        <template #body="{ data }">
+          <Tag v-if="syncState(data.id)?.status === '冲突待处理'" value="冲突" severity="danger" />
+          <Tag v-else-if="syncState(data.id)?.status === '回传失败'" value="失败可重试" severity="warn" />
+          <Tag v-else-if="syncState(data.id)" :value="store.networkOnline ? '回传中' : '待回传'" severity="info" />
+          <Tag v-else value="一致" severity="success" />
+        </template>
+      </Column>
     </DataTable>
     <div v-if="selected" class="detail-panel">
-      <div class="detail-title"><div><span>{{ selected.id }} · {{ selected.equipmentId }}</span><h3>{{ selected.title }}</h3></div><div><Button label="多方回复" outlined @click="replyVisible = true" /><Button label="联合复验" @click="retestVisible = true" /></div></div>
+      <div class="detail-title"><div><span>{{ selected.id }} · {{ selected.equipmentId }}</span><h3>{{ selected.title }}</h3></div><div><Button label="多方回复" outlined :disabled="store.frozen" @click="openReply" /><Button label="联合复验" :disabled="store.frozen" @click="retestVisible = true" /></div></div>
       <div class="reply-list"><article v-for="item in selected.replies" :key="item.repliedAt"><Tag :value="item.party" /><strong>{{ item.owner }}</strong><p>{{ item.content }}</p><span>{{ item.evidence }} · {{ item.repliedAt.replace('T', ' ').slice(0, 16) }}</span></article></div>
       <div class="decision-band"><Textarea v-model="retest.note" rows="2" placeholder="验收决定说明，带条件接受时必须填写限制条件" /><Button label="通过并关闭" @click="decide('已关闭')" /><Button label="带条件接受" severity="secondary" outlined @click="decide('带条件通过')" /><Button label="退回整改" severity="danger" outlined @click="decide('整改中')" /></div>
     </div>
@@ -65,6 +81,7 @@ function decide(status: '已关闭' | '带条件通过' | '整改中') {
         <label>处理说明<Textarea v-model="reply.content" rows="4" /></label>
         <label>证据附件<InputText v-model="reply.evidence" placeholder="整改记录或报告名称" /></label>
       </div>
+      <p class="dialog-hint">以「{{ store.currentCrew }}」身份确认（{{ store.networkOnline ? '联网，提交后立即回传中心' : '当前断网，先进入待回传队列，网络恢复后合并' }}）。</p>
       <template #footer><Button label="取消" text severity="secondary" @click="replyVisible = false" /><Button label="提交并进入复验" @click="submitReply" /></template>
     </Dialog>
     <Dialog v-model:visible="retestVisible" header="登记联合复验" modal :style="{ width: '520px' }">

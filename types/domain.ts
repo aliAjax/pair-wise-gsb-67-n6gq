@@ -74,3 +74,44 @@ export interface AuditEntry {
   detail: string
   createdAt: string
 }
+
+export type Crew = '建设班组' | '电气班组' | '运维班组'
+export type PendingEntityType = '验收项' | '缺陷处理说明'
+export type PendingRecordStatus = '待回传' | '回传中' | '回传失败' | '已回传' | '冲突待处理' | '已冻结'
+export type ConflictReason = '被其他班组改过' | '证书失效' | '签署版本不匹配'
+
+export interface FieldChange {
+  field: string
+  fieldLabel: string
+  baseValue: string
+  localValue: string
+  centralValue?: string
+  localConfirmedAt: string
+  centralConfirmedAt?: string
+  centralCrew?: Crew | null
+}
+
+export interface PendingSyncRecord {
+  id: string
+  entityType: PendingEntityType
+  equipmentId: string
+  equipmentName: string
+  entityId: string
+  itemId?: string
+  entityLabel: string
+  crew: Crew
+  fields: FieldChange[]
+  replies: PartyReply[]
+  baseVersion: number
+  basePlantVersion: number
+  status: PendingRecordStatus
+  conflictReason?: ConflictReason
+  conflictDetail?: string
+  resolutionNote?: string
+  lastError: string
+  attempts: number
+  createdAt: string
+  confirmedAt: string
+  syncedAt?: string
+  frozenAt?: string
+}

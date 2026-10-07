@@ -25,10 +25,13 @@ const navigate = (id: string) => navigateTo(`/equipment/${id}`)
       <article><span>已合格</span><strong>{{ store.stats.passed }}</strong><small>测试条件与证据齐全</small></article>
       <article><span>不合格或待复验</span><strong>{{ store.stats.failed }}</strong><small>不可直接签署</small></article>
       <article><span>未闭环缺陷</span><strong>{{ store.stats.openDefects }}</strong><small>多方责任协同</small></article>
+      <article :class="{ alert: store.pendingCount }"><span>待回传记录</span><strong>{{ store.pendingCount }}</strong><small>{{ store.networkOnline ? '联网中自动合并' : '断网暂存，恢复后合并' }}</small></article>
+      <article :class="{ alert: store.conflictCount }"><span>冲突区记录</span><strong>{{ store.conflictCount }}</strong><small>未清空前完整性检查与签署暂停</small></article>
     </div>
+    <div v-if="store.conflictCount" class="conflict-strip"><Tag value="回传冲突阻断中" severity="danger" /><span v-for="item in store.conflictRecords" :key="item.id">设备「{{ item.equipmentName }}」· {{ item.entityType }}「{{ item.entityLabel }}」· {{ item.conflictReason }}</span><NuxtLink to="/sync">前往处理 →</NuxtLink></div>
     <div class="toolbar">
       <InputText v-model="store.keyword" placeholder="搜索设备、编号、验收项或状态" />
-      <span>{{ isFetching ? '正在同步' : '设备快照已加载' }}</span>
+      <span>{{ isFetching ? '正在同步' : store.networkOnline ? '网络正常，可实时回传' : '当前断网，录入进入待回传队列' }}</span>
       <Button label="恢复演示数据" severity="secondary" outlined @click="store.reset" />
     </div>
     <DataTable :value="rows" dataKey="id" size="small" stripedRows>
